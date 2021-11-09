@@ -42,6 +42,8 @@
     let delayElt = document.getElementById(DELAY);
     let forceErrorsElt = document.getElementById(ENFORCE_ERRORS);
 
+    let freqMap = new Map();
+
     let chart;
 
     function readSettings() {
@@ -80,64 +82,72 @@
 
     readSettings();
 
-    function drawChart() {
+    function createChart() {
+        let ctx = document.getElementById("myChart").getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Requests per 500ms',
+                    data: []
+                }],
+            },
+            options: {
+                elements: {
+                    line: {
+                        tension: 0,
+                        backgroundColor: "#80a0e0",
+                        borderColor: "#80a0e0",
+                        borderWidth: 2,
+                        fill: "start"
+                    }
+                },
+                /* scales: {
+                     yAxis: [{
+                         ticks: {
+                             beginAtZero: true,
+                             stepSize: 10
+                         }
+                     }]
+                 }*/
+            }
+        });
+        refreshChart();
+    }
+
+    function refreshChart() {
         fetch("/stats")
             .then(response => response.json())
             .then(data => {
-                let freqMap = new Map(); // mstodo would updating the map update the chart?
-
-                var prevKey = 0;
+                freqMap.clear()
+                let prevKey = 0;
                 data.requestTimes.sort().forEach(
                     event => {
-                        let key = Math.floor((event - data.currentTime) / 1000);
+                        let key = Math.floor((event - data.currentTime) / 500);
                         while (prevKey !== 0 && key > 1 + prevKey) {
-                            prevKey ++;
+                            prevKey++;
                             freqMap.set(prevKey, 0);
-                            console.log("setting zero for ", prevKey)
                         }
                         let count = freqMap.get(key) || 0;
-                        console.log("current key: ", key, "setting count to", count +1);
                         prevKey = key;
                         freqMap.set(key, ++count)
                     }
                 );
                 while (prevKey < 0) {
-                    freqMap.set(prevKey ++, 0)
+                    freqMap.set(prevKey++, 0)
                 }
-                let ctx = document.getElementById("myChart").getContext('2d');
-                chart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: [...freqMap.keys()],
-                        datasets: [{
-                            label: 'Requests per 1s',
-                            data: [...freqMap.values()]
-                        }],
-                    },
-                    options: {
-                        elements: {
-                            line: {
-                                tension: 0,
-                                backgroundColor: "#80a0e0",
-                                borderColor: "#80a0e0",
-                                borderWidth: 2,
-                                fill: "start"
-                            }
-                        },
-                        scales: {
-                            y: [{
-                                ticks: {
-                                    beginAtZero: true,
-                                    stepSize: 10
-                                }
-                            }]
-                        }
-                    }
+
+                chart.data.labels = [...freqMap.keys()]
+                chart.data.datasets.forEach(dataset => {
+                    dataset.data = [...freqMap.values()];
                 });
+                // chart.data.datasets[0].data.push(chartData);
+                chart.update();
             });
     }
 
-    document.addEventListener('DOMContentLoaded', drawChart)
+    document.addEventListener('DOMContentLoaded', createChart);
 </script>
 
 </body>

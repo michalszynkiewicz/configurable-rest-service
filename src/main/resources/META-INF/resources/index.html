@@ -22,9 +22,11 @@
                     <input type="checkbox" class="form-check-input" id="forceErrors" onchange="updateSettings()">
                     <label for="forceErrors" class="form-check-label">Enforce errors</label>
                 </div>
+                <div class="btn btn-success" onclick="refreshChart()">Refresh the chart</div>
+                <div class="btn btn-warning" onclick="resetData()">Reset collected data</div>
             </form>
         </div>
-        <div class="col-6 col-md-12">
+        <div class="col-12 col-md-12">
             <div>
                 <canvas id="myChart"></canvas>
             </div>
@@ -39,6 +41,8 @@
 
     let delayElt = document.getElementById(DELAY);
     let forceErrorsElt = document.getElementById(ENFORCE_ERRORS);
+
+    let chart;
 
     function readSettings() {
         fetch("/config")
@@ -68,90 +72,72 @@
         })
     }
 
-    readSettings()
-
-
-    fetch("/stats")
-        .then(response => response.json())
-        .then(data => {
-            console.log(data);
-            let freqMap = new Map(); // mstodo would updating the map update the chart?
-
-            data.requestTimes.forEach(
-                event => {
-                    let key = Math.floor((data.currentTime - event) / 100);
-                    let count = freqMap.get(key) || 0;
-                    freqMap.set(key, ++count)
-                }
-            )
-            var ctx = document.getElementById("myChart").getContext('2d');
-            var myLineChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [...freqMap.keys()],
-                    datasets: [{
-                        label: 'Requests per 100ms',
-                        data: [...freqMap.values()]
-                    }],
-                },
-                options: {
-                    elements: {
-                        line: {
-                            tension: 0
-                        }
-                    },
-                    scales: {
-                        yAxes: [{
-                            ticks: {
-                                beginAtZero: true,
-                                stepSize: 1
-                            }
-                        }]
-                    }
-                }
-            });
+    function resetData() {
+        fetch("/stats", {
+            method: 'DELETE',
         })
-    /*var a = ['2018-01-03 15:15:04', '2018-01-04 06:32:45', '2018-01-04 23:32:45', '2018-02-23 01:24:32', '2018-02-23 04:33:12', '2018-03-23 05:33:12', '2018-03-22 08:33:12', '2018-04-27 01:33:12'];
+    }
 
-    var freqMap = new Map();
+    readSettings();
 
-    a.forEach(function (time) {
-        var date = new Date(time);
-        var monthName = date.toLocaleString("en-us", {
-            month: "short"
-        });
+    function drawChart() {
+        fetch("/stats")
+            .then(response => response.json())
+            .then(data => {
+                let freqMap = new Map(); // mstodo would updating the map update the chart?
 
-        var key = monthName + "-" + date.getFullYear();
-        var count = freqMap.get(key) || 0;
-        freqMap.set(key, ++count);
-    });
-
-    var ctx = document.getElementById("myChart").getContext('2d');
-    var myLineChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [...freqMap.keys()],
-            datasets: [{
-                label: 'Requests per month',
-                data: [...freqMap.values()]
-            }],
-        },
-        options: {
-            elements: {
-                line: {
-                    tension: 0
-                }
-            },
-            scales: {
-                yAxes: [{
-                    ticks: {
-                        beginAtZero: true,
-                        stepSize: 1
+                var prevKey = 0;
+                data.requestTimes.sort().forEach(
+                    event => {
+                        let key = Math.floor((event - data.currentTime) / 1000);
+                        while (prevKey !== 0 && key > 1 + prevKey) {
+                            prevKey ++;
+                            freqMap.set(prevKey, 0);
+                            console.log("setting zero for ", prevKey)
+                        }
+                        let count = freqMap.get(key) || 0;
+                        console.log("current key: ", key, "setting count to", count +1);
+                        prevKey = key;
+                        freqMap.set(key, ++count)
                     }
-                }]
-            }
-        }
-    });*/
+                );
+                while (prevKey < 0) {
+                    freqMap.set(prevKey ++, 0)
+                }
+                let ctx = document.getElementById("myChart").getContext('2d');
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [...freqMap.keys()],
+                        datasets: [{
+                            label: 'Requests per 1s',
+                            data: [...freqMap.values()]
+                        }],
+                    },
+                    options: {
+                        elements: {
+                            line: {
+                                tension: 0,
+                                backgroundColor: "#80a0e0",
+                                borderColor: "#80a0e0",
+                                borderWidth: 2,
+                                fill: "start"
+                            }
+                        },
+                        scales: {
+                            y: [{
+                                ticks: {
+                                    beginAtZero: true,
+                                    stepSize: 10
+                                }
+                            }]
+                        }
+                    }
+                });
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', drawChart)
 </script>
 
 </body>

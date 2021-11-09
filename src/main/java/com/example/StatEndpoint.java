@@ -1,5 +1,6 @@
 package com.example;
 
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -20,6 +21,11 @@ public class StatEndpoint {
     @GET
     public Statistics getRequestTimes() {
         return new Statistics(System.currentTimeMillis(), requestTimes);
+    }
+
+    @DELETE
+    public void clearData() {
+        requestTimes.clear();
     }
 
     public static class Statistics {

@@ -22,7 +22,6 @@
                     <input type="checkbox" class="form-check-input" id="forceErrors" onchange="updateSettings()">
                     <label for="forceErrors" class="form-check-label">Enforce errors</label>
                 </div>
-                <div class="btn btn-success" onclick="refreshChart()">Refresh the chart</div>
                 <div class="btn btn-warning" onclick="resetData()">Reset collected data</div>
             </form>
         </div>
@@ -90,13 +89,22 @@
         chart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: [],
+                // labels: [],
                 datasets: [{
                     label: 'Requests per 500ms',
                     data: []
                 }],
             },
             options: {
+                scales: {
+                    yAxes: [{
+                        // display: true,
+                        // stacked: true,
+                        ticks: {
+                            min: 0 //, // minimum value
+                        }
+                    }]
+                },
                 elements: {
                     line: {
                         tension: 0,
@@ -117,30 +125,28 @@
             }
         });
         refreshChart();
+        setInterval(refreshChart, 1000)
     }
 
     function refreshChart() {
         fetch("/stats")
             .then(response => response.json())
             .then(data => {
+                console.log(data);
                 freqMap.clear()
                 let prevKey = 0;
-                data.requestTimes.sort().forEach(
-                    event => {
-                        let key = Math.floor((event - data.currentTime) / 500);
+
+                new Map(Object.entries(data)).forEach(
+                    (value, key) => {
                         while (prevKey !== 0 && key > 1 + prevKey) {
                             prevKey++;
-                            freqMap.set(prevKey, 0);
+                            freqMap.set(prevKey, 0)
                         }
-                        let count = freqMap.get(key) || 0;
-                        prevKey = key;
-                        freqMap.set(key, ++count)
+                        freqMap.set(key, value);
                     }
                 );
-                while (prevKey < 0) {
-                    freqMap.set(prevKey++, 0)
-                }
 
+                console.log(freqMap);
                 chart.data.labels = [...freqMap.keys()]
                 chart.data.datasets.forEach(dataset => {
                     dataset.data = [...freqMap.values()];

@@ -1,40 +1,65 @@
 package com.example;
 
+import org.jboss.logging.Logger;
+
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Path("/stats")
 public class StatEndpoint {
 
-    private List<Long> requestTimes = Collections.synchronizedList(new ArrayList<>()); // the time (millis since epoch) a request hit this service
+    private static final Logger log = Logger.getLogger(StatEndpoint.class);
 
+    private final Map<Long, Integer> requestStats = Collections.synchronizedMap(new LinkedHashMap<>());
 
-    public void recordRequest() {
-        requestTimes.add(System.currentTimeMillis());
+    private Long startTime = System.currentTimeMillis() / 1000;
+
+    public synchronized void recordRequest() {
+        long secondsSinceAppStart = now();
+        requestStats.merge(secondsSinceAppStart, 1, Integer::sum);
     }
 
-    @GET
-    public Statistics getRequestTimes() {
-        return new Statistics(System.currentTimeMillis(), requestTimes);
+    private long now() {
+        return System.currentTimeMillis() / 1000 - startTime;
     }
 
     @DELETE
-    public void clearData() {
-        requestTimes.clear();
+    public synchronized void reset() {
+        startTime = System.currentTimeMillis() / 1000;
+        requestStats.clear();
     }
 
-    public static class Statistics {
-        public long currentTime;
-        public List<Long> requestTimes;
+    @GET
+    public synchronized Map<Long, Integer> getRequestStats() {
+        long currentTime = now();
 
-        public Statistics(long currentTime, List<Long> requestTimes) {
-            this.currentTime = currentTime;
-            this.requestTimes = requestTimes;
+        removeOldData(currentTime);
+
+        addCurrentEntry(currentTime);
+
+        return requestStats;
+    }
+
+    private void addCurrentEntry(long currentTime) {
+        if (!requestStats.containsKey(currentTime)) {
+            requestStats.put(currentTime, 0);
         }
+    }
+
+    private void removeOldData(long currentTime) {
+        List<Long> toRemove = new ArrayList<>();
+        for (Map.Entry<Long, Integer> statEntry : requestStats.entrySet()) {
+            if (statEntry.getKey() < currentTime - 100) {
+                // only entries for last 100 seconds
+                toRemove.add(statEntry.getKey());
+            }
+        }
+        toRemove.forEach(requestStats::remove);
     }
 }

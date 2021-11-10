@@ -1,0 +1,6 @@
+{
+  "ID": "my-service-1",
+  "Name": "my-service",
+  "Address": "127.0.0.1",
+  "Port": 8406
+}

@@ -52,6 +52,7 @@
             .then(data => {
                 delayElt.value = data.delay;
                 forceErrorsElt.checked = data.forceErrors;
+                document.body.style.background = data.color;
             })
     }
 
@@ -77,7 +78,9 @@
     function resetData() {
         fetch("/stats", {
             method: 'DELETE',
-        })
+        }).then(
+            () => refreshChart()
+        )
     }
 
     readSettings();
@@ -142,7 +145,6 @@
                 chart.data.datasets.forEach(dataset => {
                     dataset.data = [...freqMap.values()];
                 });
-                // chart.data.datasets[0].data.push(chartData);
                 chart.update();
             });
     }

@@ -1,0 +1,5 @@
+{
+  "serviceName": "configurable-service",
+  "url": "http://127.0.0.1:8506",
+  "labels": ["v2"]
+}
